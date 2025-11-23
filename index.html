@@ -7,6 +7,7 @@
   body { font-family: Arial; padding: 20px; background: #f5f5f5; }
   table, th, td { border: 1px solid black; border-collapse: collapse; padding: 6px; }
   table { margin-top: 20px; width: 100%; background: white; }
+  .box { margin-bottom: 30px; padding: 15px; background: #fff; border-radius: 10px; }
 </style>
 </head>
 
@@ -14,20 +15,35 @@
 
 <h1>Panel de Aduana</h1>
 
-<button onclick="cargarRegistros()">Cargar registros</button>
-
-<h2>Registros recibidos</h2>
-<div id="registros"></div>
+<div class="box">
+  <h2>Registros recibidos</h2>
+  <button onclick="cargarRegistros()">Cargar registros</button>
+  <div id="registros"></div>
+</div>
 
 <hr>
 
-<h2>Distribución horaria</h2>
+<div class="box">
+  <h2>Predicción automática por hora (Modelo NB)</h2>
 
-<label>Total esperado del día (E):</label>
-<input type="number" id="esperado" value="300">
-<button onclick="cargarDistribucion()">Generar predicción</button>
+  <label>Selecciona fecha:</label>
+  <input type="date" id="fecha">
+  <button onclick="cargarPrediccionHoraria()">Predecir</button>
 
-<div id="prediccion"></div>
+  <div id="prediccion_auto"></div>
+</div>
+
+<hr>
+
+<div class="box">
+  <h2>Distribución horaria (basada en registros reales)</h2>
+
+  <label>Total esperado del día (E):</label>
+  <input type="number" id="esperado" value="300">
+  <button onclick="cargarDistribucion()">Generar predicción</button>
+
+  <div id="prediccion"></div>
+</div>
 
 <script>
 // -----------------------------
@@ -62,7 +78,47 @@ function cargarRegistros() {
 }
 
 // -----------------------------
-// GENERAR DISTRIBUCIÓN HORARIA
+// NUEVO: PREDICCIÓN REAL DEL MODELO
+// -----------------------------
+function cargarPrediccionHoraria() {
+    const fecha = document.getElementById("fecha").value;
+
+    if (!fecha) {
+        document.getElementById("prediccion_auto").innerHTML = "<p>Primero selecciona una fecha.</p>";
+        return;
+    }
+
+    fetch(`https://aduana-backend-fastapi-1.onrender.com/prediccion_horaria?fecha=${fecha}`)
+    .then(res => res.json())
+    .then(data => {
+
+        let html = `
+            <h3>Predicción para el día ${data.fecha}</h3>
+            <p><b>Predicción mensual (E_mes):</b> ${data.E_mes}</p>
+            <p><b>Predicción diaria (E_dia):</b> ${data.E_dia}</p>
+        `;
+
+        html += "<table><tr><th>Hora</th><th>Predicción</th></tr>";
+
+        data.horas.forEach(h => {
+            html += `<tr>
+                <td>${h.hora}</td>
+                <td>${h.pred_hora.toFixed(2)}</td>
+            </tr>`;
+        });
+
+        html += "</table>";
+
+        document.getElementById("prediccion_auto").innerHTML = html;
+    })
+    .catch(err => {
+        document.getElementById("prediccion_auto").innerHTML = "<p>Error al generar predicción.</p>";
+        console.error(err);
+    });
+}
+
+// -----------------------------
+// DISTRIBUCIÓN HORARIA CON REGISTROS REALES
 // -----------------------------
 function cargarDistribucion() {
     let esperado = parseInt(document.getElementById("esperado").value);
