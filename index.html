@@ -9,12 +9,22 @@
   table { margin-top: 20px; width: 100%; background: white; }
   .box { margin-bottom: 30px; padding: 15px; background: #fff; border-radius: 10px; }
 </style>
-</head>
 
+<script>
+// ===============================
+// CONFIG BACKEND
+// ===============================
+const API = "https://aduana-backend-node.vercel.app/api";
+</script>
+
+</head>
 <body>
 
 <h1>Panel de Aduana</h1>
 
+<!-- ============================= -->
+<!--       REGISTROS RECIBIDOS     -->
+<!-- ============================= -->
 <div class="box">
   <h2>Registros recibidos</h2>
   <button onclick="cargarRegistros()">Cargar registros</button>
@@ -23,22 +33,40 @@
 
 <hr>
 
+<!-- ============================= -->
+<!--   PREDICCIÓN AUTOMÁTICA       -->
+<!-- ============================= -->
 <div class="box">
   <h2>Predicción horaria según fecha</h2>
 
   <label>Selecciona fecha:</label>
   <input type="date" id="fecha">
-  <button onclick="cargarPrediccion()">Generar predicción</button>
+  <button onclick="cargarPrediccionHoraria()">Generar predicción</button>
 
-  <div id="prediccion_resultado"></div>
+  <div id="prediccion_auto"></div>
+</div>
+
+<hr>
+
+<!-- ================================= -->
+<!-- DISTRIBUCIÓN BASADA EN REGISTROS -->
+<!-- ================================= -->
+<div class="box">
+  <h2>Distribución horaria (basada en registros reales)</h2>
+
+  <label>Total esperado del día (E):</label>
+  <input type="number" id="esperado" value="300">
+  <button onclick="cargarDistribucion()">Generar predicción</button>
+
+  <div id="prediccion"></div>
 </div>
 
 <script>
-// -----------------------------
-// CARGAR REGISTROS
-// -----------------------------
+// ==============================
+//   CARGAR REGISTROS
+// ==============================
 function cargarRegistros() {
-    fetch("https://aduana-backend-node.vercel.app/api/registros")
+    fetch(`${API}/registros`)
     .then(res => res.json())
     .then(data => {
         let html = "<p>Total registros: " + data.total_registros + "</p>";
@@ -59,36 +87,33 @@ function cargarRegistros() {
 
         document.getElementById("registros").innerHTML = html;
     })
-    .catch(err => {
+    .catch(() => {
         document.getElementById("registros").innerHTML = "<p>Error al cargar.</p>";
-        console.error(err);
     });
 }
 
-// -----------------------------
-// PREDICCIÓN COMPLETA DESDE EL BACKEND
-// -----------------------------
-function cargarPrediccion() {
+// ==============================
+//   PREDICCIÓN AUTOMÁTICA
+// ==============================
+function cargarPrediccionHoraria() {
     const fecha = document.getElementById("fecha").value;
-
     if (!fecha) {
-        document.getElementById("prediccion_resultado").innerHTML = "<p>Primero selecciona una fecha.</p>";
+        document.getElementById("prediccion_auto").innerHTML = "<p>Seleccione una fecha.</p>";
         return;
     }
 
-    fetch(`https://aduana-backend-node.vercel.app/api/prediccion_horaria?fecha=${fecha}`)
+    fetch(`${API}/prediccion_horaria?fecha=${fecha}`)
     .then(res => res.json())
     .then(data => {
-
         if (data.error) {
-            document.getElementById("prediccion_resultado").innerHTML = `<p>${data.error}</p>`;
+            document.getElementById("prediccion_auto").innerHTML = "<p>Error: " + data.error + "</p>";
             return;
         }
 
         let html = `
             <h3>Predicción para el día ${data.fecha}</h3>
-            <p><b>E_mes:</b> ${data.E_mes}</p>
-            <p><b>E_dia:</b> ${data.E_dia}</p>
+            <p><b>Predicción mensual (E_mes):</b> ${data.E_mes}</p>
+            <p><b>Predicción diaria (E_dia):</b> ${data.E_dia}</p>
         `;
 
         html += "<table><tr><th>Hora</th><th>Predicción</th></tr>";
@@ -102,14 +127,49 @@ function cargarPrediccion() {
 
         html += "</table>";
 
-        document.getElementById("prediccion_resultado").innerHTML = html;
+        document.getElementById("prediccion_auto").innerHTML = html;
     })
-    .catch(err => {
-        document.getElementById("prediccion_resultado").innerHTML = "<p>Error al generar predicción.</p>";
-        console.error(err);
+    .catch(() => {
+        document.getElementById("prediccion_auto").innerHTML = "<p>Error al generar predicción.</p>";
+    });
+}
+
+// ==============================
+// DISTRIBUCIÓN HORARIA REAL
+// ==============================
+function cargarDistribucion() {
+    const esperado = parseInt(document.getElementById("esperado").value);
+
+    fetch(`${API}/distribucion`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ esperado: esperado })
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.error) {
+            document.getElementById("prediccion").innerHTML = `<p>${data.error}</p>`;
+            return;
+        }
+
+        let html = "<table><tr><th>Hora</th><th>Predicción</th></tr>";
+
+        data.forEach(row => {
+            html += `<tr>
+                <td>${row.hora}</td>
+                <td>${row.pred_hora.toFixed(2)}</td>
+            </tr>`;
+        });
+
+        html += "</table>";
+        document.getElementById("prediccion").innerHTML = html;
+    })
+    .catch(() => {
+        document.getElementById("prediccion").innerHTML = "<p>Error al generar predicción.</p>";
     });
 }
 </script>
 
 </body>
 </html>
+
