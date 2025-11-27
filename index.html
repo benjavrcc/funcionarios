@@ -129,8 +129,12 @@ async function buscar() {
   const tbody = document.querySelector("#tablaPred tbody");
   tbody.innerHTML = "";
 
-  const horas = Object.keys(data.expected_hourly);
-  const valores = Object.values(data.expected_hourly);
+  // Obtener horas y ordenarlas numéricamente
+  let horas = Object.keys(data.expected_hourly).sort((a, b) => Number(a) - Number(b));
+
+  // Ordenar valores según el orden de horas
+  let valores = horas.map(h => data.expected_hourly[h]);
+
 
   // Encontrar hora peak
   let peak = horas[valores.indexOf(Math.max(...valores))];
