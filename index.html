@@ -2,174 +2,176 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<title>Aduana - Dashboard</title>
+<title>Dashboard Funcionarios</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
 <style>
-  body { font-family: Arial; padding: 20px; background: #f5f5f5; }
-  table, th, td { border: 1px solid black; border-collapse: collapse; padding: 6px; }
-  table { margin-top: 20px; width: 100%; background: white; }
-  .box { margin-bottom: 30px; padding: 15px; background: #fff; border-radius: 10px; }
+  body {
+    font-family: Arial;
+    background: #eef2ff;
+    padding: 20px;
+  }
+  h1 {
+    text-align: center;
+  }
+  #form {
+    margin: 20px auto;
+    text-align: center;
+  }
+  input {
+    padding: 10px;
+    font-size: 16px;
+  }
+  button {
+    padding: 10px 18px;
+    background: #1e40af;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 16px;
+  }
+  button:hover {
+    background: #1e3a8a;
+  }
+  table {
+    width: 80%;
+    margin: 25px auto;
+    border-collapse: collapse;
+  }
+  table, th, td {
+    border: 1px solid #333;
+  }
+  th, td {
+    padding: 10px;
+    text-align: center;
+  }
+  #chartContainer {
+    width: 90%;
+    max-width: 700px;
+    margin: 0 auto;
+  }
+  #infoBox {
+    margin: 20px auto;
+    background: #ffffff;
+    padding: 15px;
+    border-radius: 10px;
+    width: 80%;
+    max-width: 600px;
+    text-align: center;
+    border: 1px solid #cbd5e1;
+  }
 </style>
-
-<script>
-// ===============================
-// CONFIG BACKEND
-// ===============================
-const API = "https://aduana-backend-node.vercel.app/api";
-</script>
-
 </head>
+
 <body>
 
-<h1>Panel de Aduana</h1>
+<h1>Dashboard Funcionarios</h1>
 
-<!-- ============================= -->
-<!--       REGISTROS RECIBIDOS     -->
-<!-- ============================= -->
-<div class="box">
-  <h2>Registros recibidos</h2>
-  <button onclick="cargarRegistros()">Cargar registros</button>
-  <div id="registros"></div>
-</div>
-
-<hr>
-
-<!-- ============================= -->
-<!--   PREDICCIÓN AUTOMÁTICA       -->
-<!-- ============================= -->
-<div class="box">
-  <h2>Predicción horaria según fecha</h2>
-
-  <label>Selecciona fecha:</label>
+<div id="form">
+  <label for="fecha">Seleccione fecha:</label>
   <input type="date" id="fecha">
-  <button onclick="cargarPrediccionHoraria()">Generar predicción</button>
-
-  <div id="prediccion_auto"></div>
+  <button onclick="buscar()">Buscar</button>
 </div>
 
-<hr>
-
-<!-- ================================= -->
-<!-- DISTRIBUCIÓN BASADA EN REGISTROS -->
-<!-- ================================= -->
-<div class="box">
-  <h2>Distribución horaria (basada en registros reales)</h2>
-
-  <label>Total esperado del día (E):</label>
-  <input type="number" id="esperado" value="300">
-  <button onclick="cargarDistribucion()">Generar predicción</button>
-
-  <div id="prediccion"></div>
+<div id="infoBox">
+  <p><strong>Fecha:</strong> <span id="infoFecha">N/A</span></p>
+  <p><strong>E_dia:</strong> <span id="infoE">N/A</span></p>
+  <p><strong>Hora peak:</strong> <span id="infoPeak">N/A</span></p>
 </div>
+
+<div id="chartContainer">
+  <canvas id="chart"></canvas>
+</div>
+
+<table id="tablaPred" style="display:none;">
+  <thead>
+    <tr>
+      <th>Hora</th>
+      <th>Valor esperado</th>
+    </tr>
+  </thead>
+  <tbody></tbody>
+</table>
 
 <script>
-// ==============================
-//   CARGAR REGISTROS
-// ==============================
-function cargarRegistros() {
-    fetch(`${API}/registros`)
-    .then(res => res.json())
-    .then(data => {
-        let html = "<p>Total registros: " + data.total_registros + "</p>";
+// URL del backend FastAPI
+const API = "https://aduanadigital-backend-fastapi.onrender.com/funcionarios";
 
-        if (data.registros.length === 0) {
-            html += "<p>No hay registros todavía.</p>";
-        } else {
-            html += "<table><tr><th>Fecha</th><th>Hora</th><th>Viajeros</th></tr>";
-            data.registros.forEach(r => {
-                html += `<tr>
-                    <td>${r.fecha_llegada}</td>
-                    <td>${r.hora_llegada}</td>
-                    <td>${r.cantidad_viajeros}</td>
-                </tr>`;
-            });
-            html += "</table>";
-        }
+// Gráfico global
+let chart = null;
 
-        document.getElementById("registros").innerHTML = html;
-    })
-    .catch(() => {
-        document.getElementById("registros").innerHTML = "<p>Error al cargar.</p>";
-    });
-}
+async function buscar() {
 
-// ==============================
-//   PREDICCIÓN AUTOMÁTICA
-// ==============================
-function cargarPrediccionHoraria() {
-    const fecha = document.getElementById("fecha").value;
-    if (!fecha) {
-        document.getElementById("prediccion_auto").innerHTML = "<p>Seleccione una fecha.</p>";
-        return;
+  const fecha = document.getElementById("fecha").value;
+
+  if (!fecha) {
+    alert("Seleccione una fecha.");
+    return;
+  }
+
+  // Llamar al backend
+  const res = await fetch(`${API}/expected-hourly/${fecha}`);
+  const data = await res.json();
+
+  if (data.error) {
+    alert(data.error);
+    return;
+  }
+
+  // Mostrar información
+  document.getElementById("infoFecha").textContent = fecha;
+  document.getElementById("infoE").textContent = data.E_dia;
+
+  // Limpiar tabla
+  const tbody = document.querySelector("#tablaPred tbody");
+  tbody.innerHTML = "";
+
+  const horas = Object.keys(data.expected_hourly);
+  const valores = Object.values(data.expected_hourly);
+
+  // Encontrar hora peak
+  let peak = horas[valores.indexOf(Math.max(...valores))];
+  document.getElementById("infoPeak").textContent = peak + ":00";
+
+  // Mostrar tabla
+  document.getElementById("tablaPred").style.display = "table";
+
+  horas.forEach((h, i) => {
+    tbody.innerHTML += `
+      <tr>
+        <td>${h}:00</td>
+        <td>${valores[i]}</td>
+      </tr>
+    `;
+  });
+
+  // Crear o actualizar grafico
+  const ctx = document.getElementById("chart");
+
+  if (chart) chart.destroy();
+
+  chart = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: horas.map(h => h + ":00"),
+      datasets: [{
+        label: "Flujo esperado por hora",
+        data: valores,
+        backgroundColor: "#1d4ed8"
+      }]
+    },
+    options: {
+      responsive: true,
+      scales: {
+        y: { beginAtZero: true }
+      }
     }
-
-    fetch(`${API}/prediccion_horaria?fecha=${fecha}`)
-    .then(res => res.json())
-    .then(data => {
-        if (data.error) {
-            document.getElementById("prediccion_auto").innerHTML = "<p>Error: " + data.error + "</p>";
-            return;
-        }
-
-        let html = `
-            <h3>Predicción para el día ${data.fecha}</h3>
-            <p><b>Predicción mensual (E_mes):</b> ${data.E_mes}</p>
-            <p><b>Predicción diaria (E_dia):</b> ${data.E_dia}</p>
-        `;
-
-        html += "<table><tr><th>Hora</th><th>Predicción</th></tr>";
-
-        data.horas.forEach(h => {
-            html += `<tr>
-                <td>${h.hora}</td>
-                <td>${h.pred_hora.toFixed(2)}</td>
-            </tr>`;
-        });
-
-        html += "</table>";
-
-        document.getElementById("prediccion_auto").innerHTML = html;
-    })
-    .catch(() => {
-        document.getElementById("prediccion_auto").innerHTML = "<p>Error al generar predicción.</p>";
-    });
-}
-
-// ==============================
-// DISTRIBUCIÓN HORARIA REAL
-// ==============================
-function cargarDistribucion() {
-    const esperado = parseInt(document.getElementById("esperado").value);
-
-    fetch(`${API}/distribucion`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ esperado: esperado })
-    })
-    .then(res => res.json())
-    .then(data => {
-        if (data.error) {
-            document.getElementById("prediccion").innerHTML = `<p>${data.error}</p>`;
-            return;
-        }
-
-        let html = "<table><tr><th>Hora</th><th>Predicción</th></tr>";
-
-        data.forEach(row => {
-            html += `<tr>
-                <td>${row.hora}</td>
-                <td>${row.pred_hora.toFixed(2)}</td>
-            </tr>`;
-        });
-
-        html += "</table>";
-        document.getElementById("prediccion").innerHTML = html;
-    })
-    .catch(() => {
-        document.getElementById("prediccion").innerHTML = "<p>Error al generar predicción.</p>";
-    });
+  });
 }
 </script>
 
 </body>
 </html>
-
