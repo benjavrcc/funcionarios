@@ -38,7 +38,7 @@
 // CARGAR REGISTROS
 // -----------------------------
 function cargarRegistros() {
-    fetch("https://aduana-backend-node.vercel.app/registros")
+    fetch("https://aduana-backend-node.vercel.app/api/registros")
     .then(res => res.json())
     .then(data => {
         let html = "<p>Total registros: " + data.total_registros + "</p>";
@@ -76,7 +76,7 @@ function cargarPrediccion() {
         return;
     }
 
-    fetch(`https://aduana-backend-node.vercel.app/prediccion_horaria?fecha=${fecha}`)
+    fetch(`https://aduana-backend-node.vercel.app/api/prediccion_horaria?fecha=${fecha}`)
     .then(res => res.json())
     .then(data => {
 
